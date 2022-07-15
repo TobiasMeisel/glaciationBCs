@@ -10,12 +10,9 @@ from glaciationBCs import glacierclass_AREHS as glc	# glacier
 from glaciationBCs import crustclass_AREHS as crc 	# earth crust
 from glaciationBCs import repoclass_AREHS as dgr	# repository
 from glaciationBCs import airclass_AREHS as air		# atmosphere
-
-import numpy as np
-
+from glaciationBCs.constants_AREHS import *			# constants
 
 import OpenGeoSys
-from glaciationBCs.constants_AREHS import *
 
 # Nomenclature: BC Process_LocationQuantity_Component
 # 					(THM)			(XYZ)
@@ -60,12 +57,7 @@ class BCT_SurfaceTemperature(OpenGeoSys.BoundaryCondition):
 		if t != self.air.t_prev:
 			print(self.air.tcr.stage_control(t))
 			self.air.t_prev = t
-		"""
-		if x-self.glacier.x_0 > self.glacier.length(t) or self.glacier.length(t)==0.0:
-			value = self.air.temperature(t)
-		else:
-			value = self.glacier.temperature(x,t)
-		"""
+
 		under_glacier = x-self.glacier.x_0 <= self.glacier.length(t) > 0
 		if under_glacier:
 			# prescribe fixed temperature underneath the glacier body
@@ -82,7 +74,7 @@ class BCT_SourceFromRepository(OpenGeoSys.SourceTerm):
 		super(BCT_SourceFromRepository, self).__init__()
 		# instantiate member objects of the external geosphere
 		self.repo = dgr.repo(BE_Q, BE_z, BE_f, HA_Q, HA_z, HA_f, BE_vol, HA_vol,
-							 lrepo, t_inter_BE, t_inter_HA, t_filled)
+							 100*lrepo, t_inter_BE, t_inter_HA, t_filled)
 		if plotinput:
 			self.repo.print_max_load()
 			self.repo.plot_evolution()
@@ -91,9 +83,17 @@ class BCT_SourceFromRepository(OpenGeoSys.SourceTerm):
 		x, y, z = coords
 
 		value = 0
-		if ((xrmin <= x <= xrmax) and (yrmin <= y <= yrmax)): #TODO
-			print("y = ",y)
+		inside_repo = (xrmin <= x <= xrmax) and (yrmin <= y <= yrmax)
+		if inside_repo:
+			# prescribe heat flux from radioactive repository
 			value = self.repo.radioactive_heatflux(t)
+			"""
+			if t != self.repo.t_prev:
+				#print("y = ",y)
+				print("t/a = ",t/s_a)
+				print("H = ", self.repo.radioactive_heatflow(t))
+				self.repo.t_prev = t
+			"""
 
 		derivative = [0.0] * len(primary_vars)
 		return (value, derivative)
@@ -110,8 +110,6 @@ class BCT_BottomHeatFlux(OpenGeoSys.BoundaryCondition):
 
 		# get heat flux component
 		value = self.crust.geothermal_heatflux()[1]
-
-		#derivative = np.zero(length(primary_vars))
 
 		derivative = [0.0] * len(primary_vars)
 		return (True, value, derivative)

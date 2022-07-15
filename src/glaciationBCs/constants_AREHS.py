@@ -14,7 +14,7 @@ T_ini = 273.15 + 8.5 #K
 T_min = 273.15 - 1.5 #K
 T_bot = 345.783      #K
 
-# Geomodel-specific
+# TODO Geomodel-specific
 x_min = 9000		 #m
 x_max = 20950		 #m
 y_min =-2216.03		 #m
@@ -23,8 +23,8 @@ y_max = 67.0103		 #m
 lrepo = 3000		 #m / m²
 xrmin = (x_max+x_min)/2 - lrepo/2
 xrmax = (x_max+x_min)/2 + lrepo/2
-yrmin = -1270 - 320/2.
-yrmax = -1250 + 320/2.
+yrmin = -1270-320/2. #m TODO
+yrmax = -1250+320/2. #m TODO
 
 L_dom = x_max - x_min#m
 L_max = 0.8 * L_dom	 #m
