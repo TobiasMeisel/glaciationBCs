@@ -1,6 +1,9 @@
+from lib2to3.pgen2.token import OP
 from glaciationBCs import BCs_AREHs
 import OpenGeoSys
 
+BC=OpenGeoSys.BoundaryCondition
+ST = OpenGeoSys.SourceTerm
 
 # ---------------------------------------------
 # instantiate the BC objects used by OpenGeoSys

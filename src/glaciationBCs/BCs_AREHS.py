@@ -14,6 +14,8 @@ from glaciationBCs import airclass_AREHS as air		# atmosphere
 from glaciationBCs.constants_AREHS import *			# constants
 
 import OpenGeoSys
+BoundaryCondition=OpenGeoSys.BoundaryCondition
+SourceTerm=OpenGeoSys.SourceTerm
 
 # Nomenclature: BC Process_LocationQuantity_Component
 # 					(THM)					(XYZ) TODO
@@ -26,121 +28,131 @@ import OpenGeoSys
 # ---------------------------------------------------------
 # Thermal BCs
 # ---------------------------------------------------------
-class BCT_InitialTemperature(OpenGeoSys.BoundaryCondition):
+# 
+def class_BCT_InitialTemperature(BoundaryCondition):
+	class BCT_InitialTemperature(BoundaryCondition):
 
-	def __init__(self):
-		super(BCT_InitialTemperature, self).__init__()
-		# instantiate member objects of the external geosphere
-		self.air = air.air(T_ini, T_min, t_)
+		def __init__(self):
+			super(BCT_InitialTemperature, self).__init__()
+			# instantiate member objects of the external geosphere
+			self.air = air.air(T_ini, T_min, t_)
 
-	def getDirichletBCValue(self, t, coords, node_id, primary_vars):
+		def getDirichletBCValue(self, t, coords, node_id, primary_vars):
 
-		value = self.air.T_ini
+			value = self.air.T_ini
 
-		return (True, value)
+			return (True, value)
+	return BCT_InitialTemperature
 
-class BCT_SurfaceTemperature(OpenGeoSys.BoundaryCondition):
+def class_BCT_SurfaceTemperature(BoundaryCondition):
+	class BCT_SurfaceTemperature(BoundaryCondition):
 
-	def __init__(self):
-		super(BCT_SurfaceTemperature, self).__init__()
-		self.uvw = uvw.coord_control(dimension)
-		# instantiate member objects of the external geosphere
-		self.air = air.air(T_ini, T_min, t_)
-		self.glacier = glc.glacier(L_dom, L_max, H_max, u_0, t_)
-		if plotinput:
-			self.air.plot_evolution()
+		def __init__(self):
+			super(BCT_SurfaceTemperature, self).__init__()
+			self.uvw = uvw.coord_control(dimension)
+			# instantiate member objects of the external geosphere
+			self.air = air.air(T_ini, T_min, t_)
+			self.glacier = glc.glacier(L_dom, L_max, H_max, u_0, t_)
+			if plotinput:
+				self.air.plot_evolution()
 
-	def getDirichletBCValue(self, t, coords, node_id, primary_vars):
-		u, v, w = self.uvw.assign_coordinates(coords)
+		def getDirichletBCValue(self, t, coords, node_id, primary_vars):
+			u, v, w = self.uvw.assign_coordinates(coords)
 
-		if t != self.air.t_prev:
-			print(self.air.tcr.stage_control(t))
-			self.air.t_prev = t
+			if t != self.air.t_prev:
+				print(self.air.tcr.stage_control(t))
+				self.air.t_prev = t
 
-		under_glacier = u-self.glacier.u_0 <= self.glacier.length(t) > 0
-		if under_glacier:
-			# prescribe fixed temperature underneath the glacier body
-			value = self.glacier.temperature(u,t)
-		else:
-			value = self.air.temperature(t)
+			under_glacier = u-self.glacier.u_0 <= self.glacier.length(t) > 0
+			if under_glacier:
+				# prescribe fixed temperature underneath the glacier body
+				value = self.glacier.temperature(u,t)
+			else:
+				value = self.air.temperature(t)
 
-		return (True, value)
+			return (True, value)
+	return class_BCT_SurfaceTemperature
 
-class BCT_SourceFromRepository(OpenGeoSys.SourceTerm):
+def class_BCT_SourceFromRepository(BoundaryCondition):
+	class BCT_SourceFromRepository(OpenGeoSys.SourceTerm):
 
-	def __init__(self):
-		super(BCT_SourceFromRepository, self).__init__()
-		self.uvw = uvw.coord_control(dimension)
-		# instantiate member objects of the external geosphere
-		self.repo = dgr.repo(BE_Q, BE_z, BE_f, HA_Q, HA_z, HA_f, BE_vol, HA_vol,
-							 drepo, t_inter_BE, t_inter_HA, t_filled, dimension)
-		if plotinput:
-			self.repo.print_max_load()
-			self.repo.plot_evolution()
+		def __init__(self):
+			super(BCT_SourceFromRepository, self).__init__()
+			self.uvw = uvw.coord_control(dimension)
+			# instantiate member objects of the external geosphere
+			self.repo = dgr.repo(BE_Q, BE_z, BE_f, HA_Q, HA_z, HA_f, BE_vol, HA_vol,
+								drepo, t_inter_BE, t_inter_HA, t_filled, dimension)
+			if plotinput:
+				self.repo.print_max_load()
+				self.repo.plot_evolution()
 
-	def getFlux(self, t, coords, primary_vars):
-		u, v, w = self.uvw.assign_coordinates(coords)
-		
-		# prescribe heat flux from radioactive repository
-		value = 0
-		if dimension==2:
-			inside_repo = (urmin <= u <= urmax) and (vrmin <= v <= vrmax)
-			if inside_repo:
-				value = self.repo.radioactive_heatflux(t)			
-		if dimension==3:
-			value = self.repo.radioactive_heatflux(t)
+		def getFlux(self, t, coords, primary_vars):
+			u, v, w = self.uvw.assign_coordinates(coords)
+			
+			# prescribe heat flux from radioactive repository
+			value = 0
+			if dimension==2:
+				inside_repo = (urmin <= u <= urmax) and (vrmin <= v <= vrmax)
+				if inside_repo:
+					value = self.repo.radioactive_heatflux(t)			
+			if dimension==3:
+				value = self.repo.radioactive_heatflux(t)
 
-		derivative = [0.0] * len(primary_vars)
-		return (value, derivative)
+			derivative = [0.0] * len(primary_vars)
+			return (value, derivative)
+	return class_BCT_SourceFromRepository
 
-class BCT_BottomHeatFlux(OpenGeoSys.BoundaryCondition):
+def class_BCT_BottomHeatFlux(BoundaryCondition):
+	class BCT_BottomHeatFlux(BoundaryCondition):
 
-	def __init__(self):
-		super(BCT_BottomHeatFlux, self).__init__()
-		self.uvw = uvw.coord_control(dimension)
-		# instantiate member objects of the external geosphere
-		self.crust = crc.crust(q_geo, v_min, v_max, T_ini, T_bot)
+		def __init__(self):
+			super(BCT_BottomHeatFlux, self).__init__()
+			self.uvw = uvw.coord_control(dimension)
+			# instantiate member objects of the external geosphere
+			self.crust = crc.crust(q_geo, v_min, v_max, T_ini, T_bot)
 
-	def getFlux(self, t, coords, primary_vars): #here Neumann BC: flux of heat
+		def getFlux(self, t, coords, primary_vars): #here Neumann BC: flux of heat
 
-		# get vertical heat flux component
-		value = self.crust.geothermal_heatflux()[1]
+			# get vertical heat flux component
+			value = self.crust.geothermal_heatflux()[1]
 
-		derivative = [0.0] * len(primary_vars)
-		return (True, value, derivative)
+			derivative = [0.0] * len(primary_vars)
+			return (True, value, derivative)
+	return BCT_BottomHeatFlux
 
-class BCT_LateralHeatFlux(OpenGeoSys.BoundaryCondition):
+def class_BCT_LateralHeatFlux(BoundaryCondition):
+	class BCT_LateralHeatFlux(BoundaryCondition):
 
-	def __init__(self):
-		super(BCT_LateralHeatFlux, self).__init__()
-		self.uvw = uvw.coord_control(dimension)
-		# instantiate member objects of the external geosphere
-		self.air = air.air(T_ini, T_min, t_)
-		self.glacier = glc.glacier(L_dom, L_max, H_max, u_0, t_)
-		self.crust = crc.crust(q_geo, v_min, v_max, T_ini, T_bot)
+		def __init__(self):
+			super(BCT_LateralHeatFlux, self).__init__()
+			self.uvw = uvw.coord_control(dimension)
+			# instantiate member objects of the external geosphere
+			self.air = air.air(T_ini, T_min, t_)
+			self.glacier = glc.glacier(L_dom, L_max, H_max, u_0, t_)
+			self.crust = crc.crust(q_geo, v_min, v_max, T_ini, T_bot)
 
-	def getFlux(self, t, coords, primary_vars): #here Neumann BC: flux of heat
-		u, v, w = self.uvw.assign_coordinates(coords)
+		def getFlux(self, t, coords, primary_vars): #here Neumann BC: flux of heat
+			u, v, w = self.uvw.assign_coordinates(coords)
 
-		under_glacier = u-self.glacier.u_0 <= self.glacier.length(t) > 0
-		if under_glacier:
-			T_top = self.glacier.temperature(u,t)
-		else:
-			T_top = self.air.temperature(t)
+			under_glacier = u-self.glacier.u_0 <= self.glacier.length(t) > 0
+			if under_glacier:
+				T_top = self.glacier.temperature(u,t)
+			else:
+				T_top = self.air.temperature(t)
 
-		# get heat flux component
-		q_mag = self.crust.lateral_heatflux(v, T_top)
+			# get heat flux component
+			q_mag = self.crust.lateral_heatflux(v, T_top)
 
-		at_northern_boundary = (u-eps < u_min < u+eps)
-		if at_northern_boundary:
-			value = q_mag			# > 0 : OGS heat influx
-		else:#southern boundary
-			value =-q_mag			# < 0 : OGS heat outflux
+			at_northern_boundary = (u-eps < u_min < u+eps)
+			if at_northern_boundary:
+				value = q_mag			# > 0 : OGS heat influx
+			else:#southern boundary
+				value =-q_mag			# < 0 : OGS heat outflux
 
-		derivative = [0.0] * len(primary_vars)
-		return (True, value, derivative)
-
-class BCT_VerticalGradient(OpenGeoSys.BoundaryCondition):
+			derivative = [0.0] * len(primary_vars)
+			return (True, value, derivative)
+	return BCT_LateralHeatFlux
+class BCT_VerticalGradient(BoundaryCondition):
 
 	def __init__(self):
 		super(BCT_VerticalGradient, self).__init__()
@@ -162,7 +174,7 @@ class BCT_VerticalGradient(OpenGeoSys.BoundaryCondition):
 # ------------------------------------------------------
 # Hydraulic BCs
 # ------------------------------------------------------
-class BCH_InitialPressure(OpenGeoSys.BoundaryCondition):
+class BCH_InitialPressure(BoundaryCondition):
 
 	def __init__(self):
 		super(BCH_InitialPressure, self).__init__()
@@ -176,7 +188,7 @@ class BCH_InitialPressure(OpenGeoSys.BoundaryCondition):
 		return (True, value)
 
 
-class BCH_SurfacePressure(OpenGeoSys.BoundaryCondition):
+class BCH_SurfacePressure(BoundaryCondition):
 
 	def __init__(self):
 		super(BCH_SurfacePressure, self).__init__()
@@ -202,7 +214,7 @@ class BCH_SurfacePressure(OpenGeoSys.BoundaryCondition):
 
 		return (True, value)
 
-class BCH_SurfaceInflux(OpenGeoSys.BoundaryCondition):
+class BCH_SurfaceInflux(BoundaryCondition):
 
 	def __init__(self):
 		super(BCH_SurfaceInflux, self).__init__()
@@ -223,7 +235,7 @@ class BCH_SurfaceInflux(OpenGeoSys.BoundaryCondition):
 		# no BC => free boundary then (no flux)
 		return (False, 0.0, derivative)
 
-class BCH_VerticalGradient(OpenGeoSys.BoundaryCondition):
+class BCH_VerticalGradient(BoundaryCondition):
 
 	def __init__(self):
 		super(BCH_VerticalGradient, self).__init__()
@@ -248,7 +260,7 @@ class BCH_VerticalGradient(OpenGeoSys.BoundaryCondition):
 # --------------------------------------------------------
 # Mechanics BCs
 # --------------------------------------------------------
-class BCM_SurfaceTraction_X(OpenGeoSys.BoundaryCondition):
+class BCM_SurfaceTraction_X(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_SurfaceTraction_X, self).__init__()
@@ -272,7 +284,7 @@ class BCM_SurfaceTraction_X(OpenGeoSys.BoundaryCondition):
 		# no BC => free boundary then (no flux)
 		return (False, 0.0, derivative)
 
-class BCM_SurfaceTraction_Y(OpenGeoSys.BoundaryCondition):
+class BCM_SurfaceTraction_Y(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_SurfaceTraction_Y, self).__init__()
@@ -292,7 +304,7 @@ class BCM_SurfaceTraction_Y(OpenGeoSys.BoundaryCondition):
 		# no BC => free boundary then (no flux)
 		return (False, 0.0, derivative)
 
-class BCM_BottomDisplacement_X(OpenGeoSys.BoundaryCondition):
+class BCM_BottomDisplacement_X(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_BottomDisplacement_X, self).__init__()
@@ -306,7 +318,7 @@ class BCM_BottomDisplacement_X(OpenGeoSys.BoundaryCondition):
 
 		return (True, value)
 
-class BCM_BottomDisplacement_Y(OpenGeoSys.BoundaryCondition):
+class BCM_BottomDisplacement_Y(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_BottomDisplacement_Y, self).__init__()
@@ -320,7 +332,7 @@ class BCM_BottomDisplacement_Y(OpenGeoSys.BoundaryCondition):
 
 		return (True, value)
 
-class BCM_LateralDisplacement_X(OpenGeoSys.BoundaryCondition):
+class BCM_LateralDisplacement_X(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_LateralDisplacement_X, self).__init__()
@@ -334,7 +346,7 @@ class BCM_LateralDisplacement_X(OpenGeoSys.BoundaryCondition):
 
 		return (True, value)
 
-class BCM_LateralDisplacement_Y(OpenGeoSys.BoundaryCondition):
+class BCM_LateralDisplacement_Y(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_LateralDisplacement_Y, self).__init__()
@@ -348,7 +360,7 @@ class BCM_LateralDisplacement_Y(OpenGeoSys.BoundaryCondition):
 
 		return (True, value)
 
-class BCM_LateralTraction_X(OpenGeoSys.BoundaryCondition):
+class BCM_LateralTraction_X(BoundaryCondition):
 
 	def __init__(self):
 		super(BCM_LateralTraction_X, self).__init__()
