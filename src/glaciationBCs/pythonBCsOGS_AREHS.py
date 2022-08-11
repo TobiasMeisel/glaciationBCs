@@ -1,4 +1,6 @@
-from glaciationBCs import BCs_AREHS.py
+from glaciationBCs import BCs_AREHs
+import OpenGeoSys
+
 
 # ---------------------------------------------
 # instantiate the BC objects used by OpenGeoSys
